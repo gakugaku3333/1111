@@ -1,0 +1,38 @@
+{
+  "name": "family-ai-assistant",
+  "version": "1.0.0",
+  "description": "家族全員が自然言語で予定とタスクを一元管理できるAIアシスタントシステム",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "jest"
+  },
+  "keywords": [
+    "ai",
+    "assistant",
+    "calendar",
+    "tasks",
+    "google-calendar",
+    "google-tasks",
+    "claude",
+    "family"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.0",
+    "googleapis": "^128.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0",
+    "@types/jest": "^29.5.11",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1"
+  }
+}
