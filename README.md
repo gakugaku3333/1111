@@ -2,6 +2,17 @@
 
 家族全員が自然言語で予定とタスクを一元管理できるAIアシスタントシステムです。
 
+## 📱 iPhone/スマホで使う（LINE Bot）
+
+**推奨**: LINEボットとして使えば、iPhoneから簡単に予定やタスクを管理できます！
+
+### LINEボットの特徴
+- 📱 iPhoneのLINEアプリから直接操作
+- 🎤 音声入力も使える
+- 🔔 通知機能
+- 👨‍👩‍👧‍👦 家族全員で同じボットを共有
+- 🎨 美しいカード形式で予定・タスクを表示
+
 ## ✨ 主な機能
 
 ### Phase 1: Calendar-agent（予定管理）
@@ -55,7 +66,44 @@ TIMEZONE=Asia/Tokyo
 4. OAuth 2.0 クライアント ID を作成（デスクトップアプリケーション）
 5. `credentials.json`としてダウンロードし、プロジェクトルートに配置
 
-### 4. 初回認証
+### 4. LINE Bot の設定（iPhone/スマホで使う場合）
+
+#### 4-1. LINE Developers でチャンネルを作成
+
+1. [LINE Developers](https://developers.line.biz/) にアクセス
+2. プロバイダーを作成
+3. 「Messaging API」チャンネルを作成
+4. 以下の情報を`.env`に追加：
+   - `LINE_CHANNEL_SECRET`（Basic settings から）
+   - `LINE_CHANNEL_ACCESS_TOKEN`（Messaging API から）
+
+#### 4-2. Webhook URLを設定
+
+開発環境の場合、ngrokを使用：
+
+```bash
+# ngrokのインストール（初回のみ）
+brew install ngrok  # macOSの場合
+
+# ngrokでトンネルを作成
+ngrok http 3000
+```
+
+ngrokが表示するHTTPS URLをコピーして、LINE Developers Consoleで設定：
+- Webhook URL: `https://your-ngrok-url.ngrok.io/webhook`
+- 「Webhookの利用」をONにする
+
+#### 4-3. LINEボットを起動
+
+```bash
+npm run bot
+```
+
+#### 4-4. iPhoneでLINEボットを友だち追加
+
+LINE Developers Consoleに表示されるQRコードをiPhoneのLINEでスキャン！
+
+### 5. 初回認証（Google Calendar/Tasks）
 
 ```bash
 npm run dev -- --setup
@@ -66,13 +114,52 @@ npm run dev -- --setup
 
 ## 📖 使い方
 
+### 📱 LINEボット（iPhone推奨）
+
+LINEで友だち追加したら、普通にメッセージを送るだけ！
+
+#### 使用例
+
+**予定を追加:**
+```
+母：歯医者 5/10 10:00〜11:00
+```
+
+**タスクを追加:**
+```
+長男：宿題を終わらせる 明日まで
+```
+
+**今日の予定を確認:**
+```
+今日の予定
+```
+
+**クイックメニュー:**
+```
+メニュー
+```
+
+**ヘルプ:**
+```
+ヘルプ
+```
+
+#### LINEボットの機能
+- 🎨 予定・タスクをカード形式で美しく表示
+- ⚡ クイックリプライで素早く操作
+- 🔍 自然言語で柔軟に理解
+- 👨‍👩‍👧‍👦 家族全員の予定をまとめて確認
+
 ### デモの実行
 
 ```bash
 npm run dev -- --demo
 ```
 
-### 対話モード
+### 💻 CLIモード（開発・テスト用）
+
+#### 対話モード
 
 ```bash
 npm run dev -- --interactive
@@ -106,11 +193,15 @@ family-ai-assistant/
 │   ├── services/
 │   │   ├── google-calendar.ts   # Google Calendar API wrapper
 │   │   ├── google-tasks.ts      # Google Tasks API wrapper
-│   │   └── claude.ts            # Claude API（自然言語処理）
+│   │   ├── claude.ts            # Claude API（自然言語処理）
+│   │   └── line-bot.ts          # LINE Bot API wrapper
+│   ├── handlers/
+│   │   └── line-message-handler.ts  # LINEメッセージハンドラー
 │   ├── models/
 │   │   ├── family-member.ts     # 家族メンバー管理
 │   │   └── types.ts             # 型定義
-│   └── index.ts                 # メインエントリーポイント
+│   ├── index.ts                 # CLIエントリーポイント
+│   └── line-bot.ts              # LINEボットサーバー
 ├── package.json
 ├── tsconfig.json
 ├── .env.example
@@ -169,6 +260,8 @@ await unifiedAgent.executeWithABTest('長女：ピアノの練習をする', 'B'
 - **ランタイム**: Node.js
 - **AI**: Anthropic Claude API（自然言語理解）
 - **Google APIs**: googleapis（Calendar & Tasks）
+- **LINE Bot**: @line/bot-sdk（Messaging API）
+- **Webサーバー**: Express.js
 
 ## 🎯 自然言語の判別ロジック
 
