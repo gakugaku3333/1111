@@ -15,9 +15,9 @@ export class GeminiService {
     }
 
     this.client = new GoogleGenerativeAI(apiKey);
-    // Gemini 2.0 Flash: 最新の高速・低コストモデル
+    // Gemini 2.5 Flash: 最新の高速・低コストモデル
     this.model = this.client.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.1,
         topP: 0.95,
