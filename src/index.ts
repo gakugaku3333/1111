@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { GoogleCalendarService } from './services/google-calendar.js';
 import { GoogleTasksService } from './services/google-tasks.js';
-import { ClaudeService } from './services/claude.js';
+import { GeminiService } from './services/gemini.js';
 import { FamilyMemberManager } from './models/family-member.js';
 import { CalendarAgent } from './agents/calendar-agent.js';
 import { TasksAgent } from './agents/tasks-agent.js';
@@ -17,7 +17,7 @@ dotenv.config();
 class FamilyAIAssistant {
   private calendarService: GoogleCalendarService;
   private tasksService: GoogleTasksService;
-  private claudeService: ClaudeService;
+  private geminiService: GeminiService;
   private familyManager: FamilyMemberManager;
 
   private calendarAgent: CalendarAgent;
@@ -32,25 +32,25 @@ class FamilyAIAssistant {
     // サービスの初期化
     this.calendarService = new GoogleCalendarService();
     this.tasksService = new GoogleTasksService();
-    this.claudeService = new ClaudeService();
+    this.geminiService = new GeminiService();
 
     // Agentの初期化
     this.calendarAgent = new CalendarAgent(
       this.calendarService,
-      this.claudeService,
+      this.geminiService,
       this.familyManager
     );
 
     this.tasksAgent = new TasksAgent(
       this.tasksService,
-      this.claudeService,
+      this.geminiService,
       this.familyManager
     );
 
     this.unifiedAgent = new UnifiedAgent(
       this.calendarAgent,
       this.tasksAgent,
-      this.claudeService,
+      this.geminiService,
       this.familyManager
     );
   }

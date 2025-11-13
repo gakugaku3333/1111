@@ -53,7 +53,7 @@ cp .env.example .env
 `.env`ファイルを編集：
 
 ```env
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 FAMILY_MEMBERS=父,母,長男,長女
 TIMEZONE=Asia/Tokyo
 ```
@@ -193,7 +193,7 @@ family-ai-assistant/
 │   ├── services/
 │   │   ├── google-calendar.ts   # Google Calendar API wrapper
 │   │   ├── google-tasks.ts      # Google Tasks API wrapper
-│   │   ├── claude.ts            # Claude API（自然言語処理）
+│   │   ├── gemini.ts            # Gemini API（自然言語処理）
 │   │   └── line-bot.ts          # LINE Bot API wrapper
 │   ├── handlers/
 │   │   └── line-message-handler.ts  # LINEメッセージハンドラー
@@ -258,7 +258,7 @@ await unifiedAgent.executeWithABTest('長女：ピアノの練習をする', 'B'
 
 - **言語**: TypeScript
 - **ランタイム**: Node.js
-- **AI**: Anthropic Claude API（自然言語理解）
+- **AI**: Google Gemini API（自然言語理解）
 - **Google APIs**: googleapis（Calendar & Tasks）
 - **LINE Bot**: @line/bot-sdk（Messaging API）
 - **Webサーバー**: Express.js
@@ -275,8 +275,8 @@ await unifiedAgent.executeWithABTest('長女：ピアノの練習をする', 'B'
 - 期日のみが指定されている（時刻なし）
 
 ### A/Bテスト
-- **Variant A**: Claude APIによる高精度な判別
-- **Variant B**: ルールベース判別 + Claude APIのハイブリッド
+- **Variant A**: Gemini APIによる高精度な判別
+- **Variant B**: ルールベース判別 + Gemini APIのハイブリッド
 
 ## 📝 ライセンス
 

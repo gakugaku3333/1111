@@ -6,7 +6,7 @@
 
 - [ ] iPhoneとLINEアプリ
 - [ ] Googleアカウント
-- [ ] Anthropic APIキー（[こちら](https://console.anthropic.com/)から取得）
+- [ ] Google Gemini APIキー（[こちら](https://ai.google.dev/)から取得）
 
 ### ステップ2: プロジェクトをセットアップ
 
@@ -20,7 +20,7 @@ cp .env.example .env
 
 `.env`ファイルを編集して、以下を設定：
 ```
-ANTHROPIC_API_KEY=sk-ant-xxxxx
+GEMINI_API_KEY=xxxxx
 FAMILY_MEMBERS=父,母,長男,長女
 ```
 

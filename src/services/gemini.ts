@@ -1,26 +1,37 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ParsedCalendarCommand, ParsedTaskCommand, ParsedUnifiedCommand } from '../models/types.js';
 
 /**
- * Claude API 自然言語処理サービス
+ * Google Gemini API 自然言語処理サービス
  */
-export class ClaudeService {
-  private client: Anthropic;
+export class GeminiService {
+  private client: GoogleGenerativeAI;
+  private model: any;
 
   constructor() {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY が設定されていません。.envファイルを確認してください。');
+      throw new Error('GEMINI_API_KEY が設定されていません。.envファイルを確認してください。');
     }
 
-    this.client = new Anthropic({ apiKey });
+    this.client = new GoogleGenerativeAI(apiKey);
+    // Gemini 1.5 Flash: 高速・低コスト
+    this.model = this.client.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        temperature: 0.1,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 1024,
+      },
+    });
   }
 
   /**
    * カレンダーコマンドをパース
    */
   async parseCalendarCommand(input: string, memberNames: string[]): Promise<ParsedCalendarCommand> {
-    const systemPrompt = `あなたは家族のカレンダー管理アシスタントです。
+    const prompt = `あなたは家族のカレンダー管理アシスタントです。
 自然言語の入力を解析して、以下のJSON形式で返してください。
 
 家族メンバー: ${memberNames.join(', ')}
@@ -53,37 +64,28 @@ export class ClaudeService {
 重要:
 - 日付が省略されている場合は、文脈から推測してください
 - 時刻のみの場合は、今日または最も近い未来の日付を使用してください
-- JSONのみを返し、説明は不要です`;
+- JSONのみを返し、説明は不要です
 
-    const message = await this.client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: input,
-        },
-      ],
-      system: systemPrompt,
-    });
+入力: ${input}`;
 
-    const content = message.content[0];
-    if (content.type === 'text') {
-      try {
-        return JSON.parse(content.text);
-      } catch (error) {
-        throw new Error(`JSONのパースに失敗しました: ${content.text}`);
-      }
+    const result = await this.model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    try {
+      // JSONのみを抽出（```json ... ``` のようなマークダウンを削除）
+      const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(jsonText);
+    } catch (error) {
+      throw new Error(`JSONのパースに失敗しました: ${text}`);
     }
-
-    throw new Error('予期しないレスポンス形式です');
   }
 
   /**
    * タスクコマンドをパース
    */
   async parseTaskCommand(input: string, memberNames: string[]): Promise<ParsedTaskCommand> {
-    const systemPrompt = `あなたは家族のタスク管理アシスタントです。
+    const prompt = `あなたは家族のタスク管理アシスタントです。
 自然言語の入力を解析して、以下のJSON形式で返してください。
 
 家族メンバー: ${memberNames.join(', ')}
@@ -110,37 +112,27 @@ export class ClaudeService {
 重要:
 - 期日が省略されている場合は、dueフィールドを省略してください
 - 「明日」「来週」などの相対的な表現は具体的な日時に変換してください
-- JSONのみを返し、説明は不要です`;
+- JSONのみを返し、説明は不要です
 
-    const message = await this.client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: input,
-        },
-      ],
-      system: systemPrompt,
-    });
+入力: ${input}`;
 
-    const content = message.content[0];
-    if (content.type === 'text') {
-      try {
-        return JSON.parse(content.text);
-      } catch (error) {
-        throw new Error(`JSONのパースに失敗しました: ${content.text}`);
-      }
+    const result = await this.model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    try {
+      const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(jsonText);
+    } catch (error) {
+      throw new Error(`JSONのパースに失敗しました: ${text}`);
     }
-
-    throw new Error('予期しないレスポンス形式です');
   }
 
   /**
    * 統合コマンドをパース（予定かタスクかを自動判別）
    */
   async parseUnifiedCommand(input: string, memberNames: string[]): Promise<ParsedUnifiedCommand> {
-    const systemPrompt = `あなたは家族の予定とタスクを管理するアシスタントです。
+    const prompt = `あなたは家族の予定とタスクを管理するアシスタントです。
 自然言語の入力を解析して、「予定」か「タスク」かを判別し、適切な形式で返してください。
 
 家族メンバー: ${memberNames.join(', ')}
@@ -165,29 +157,19 @@ export class ClaudeService {
 入力: "長男：宿題を終わらせる 明日まで"
 出力: {"type":"task","taskCommand":{"action":"add","member":"長男","task":{"title":"宿題を終わらせる","due":"2025-11-13T23:59:59+09:00"}}}
 
-JSONのみを返し、説明は不要です`;
+JSONのみを返し、説明は不要です
 
-    const message = await this.client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: input,
-        },
-      ],
-      system: systemPrompt,
-    });
+入力: ${input}`;
 
-    const content = message.content[0];
-    if (content.type === 'text') {
-      try {
-        return JSON.parse(content.text);
-      } catch (error) {
-        throw new Error(`JSONのパースに失敗しました: ${content.text}`);
-      }
+    const result = await this.model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    try {
+      const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(jsonText);
+    } catch (error) {
+      throw new Error(`JSONのパースに失敗しました: ${text}`);
     }
-
-    throw new Error('予期しないレスポンス形式です');
   }
 }

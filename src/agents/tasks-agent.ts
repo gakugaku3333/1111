@@ -1,5 +1,5 @@
 import { GoogleTasksService } from '../services/google-tasks.js';
-import { ClaudeService } from '../services/claude.js';
+import { GeminiService } from '../services/gemini.js';
 import { FamilyMemberManager } from '../models/family-member.js';
 import { AgentResult, Task } from '../models/types.js';
 
@@ -9,16 +9,16 @@ import { AgentResult, Task } from '../models/types.js';
  */
 export class TasksAgent {
   private tasksService: GoogleTasksService;
-  private claudeService: ClaudeService;
+  private geminiService: GeminiService;
   private familyManager: FamilyMemberManager;
 
   constructor(
     tasksService: GoogleTasksService,
-    claudeService: ClaudeService,
+    geminiService: GeminiService,
     familyManager: FamilyMemberManager
   ) {
     this.tasksService = tasksService;
-    this.claudeService = claudeService;
+    this.geminiService = geminiService;
     this.familyManager = familyManager;
   }
 
@@ -33,7 +33,7 @@ export class TasksAgent {
   async execute(input: string): Promise<AgentResult> {
     try {
       // 自然言語をパース
-      const command = await this.claudeService.parseTaskCommand(
+      const command = await this.geminiService.parseTaskCommand(
         input,
         this.familyManager.getMemberNames()
       );

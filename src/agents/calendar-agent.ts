@@ -1,5 +1,5 @@
 import { GoogleCalendarService } from '../services/google-calendar.js';
-import { ClaudeService } from '../services/claude.js';
+import { GeminiService } from '../services/gemini.js';
 import { FamilyMemberManager } from '../models/family-member.js';
 import { AgentResult, CalendarEvent } from '../models/types.js';
 
@@ -9,16 +9,16 @@ import { AgentResult, CalendarEvent } from '../models/types.js';
  */
 export class CalendarAgent {
   private calendarService: GoogleCalendarService;
-  private claudeService: ClaudeService;
+  private geminiService: GeminiService;
   private familyManager: FamilyMemberManager;
 
   constructor(
     calendarService: GoogleCalendarService,
-    claudeService: ClaudeService,
+    geminiService: GeminiService,
     familyManager: FamilyMemberManager
   ) {
     this.calendarService = calendarService;
-    this.claudeService = claudeService;
+    this.geminiService = geminiService;
     this.familyManager = familyManager;
   }
 
@@ -33,7 +33,7 @@ export class CalendarAgent {
   async execute(input: string): Promise<AgentResult> {
     try {
       // 自然言語をパース
-      const command = await this.claudeService.parseCalendarCommand(
+      const command = await this.geminiService.parseCalendarCommand(
         input,
         this.familyManager.getMemberNames()
       );

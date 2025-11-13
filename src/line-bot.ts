@@ -3,7 +3,7 @@ import express, { Request, Response } from 'express';
 import * as line from '@line/bot-sdk';
 import { GoogleCalendarService } from './services/google-calendar.js';
 import { GoogleTasksService } from './services/google-tasks.js';
-import { ClaudeService } from './services/claude.js';
+import { GeminiService } from './services/gemini.js';
 import { LineBotService } from './services/line-bot.js';
 import { FamilyMemberManager } from './models/family-member.js';
 import { CalendarAgent } from './agents/calendar-agent.js';
@@ -45,26 +45,26 @@ class LineBotServer {
     // サービスの初期化
     const calendarService = new GoogleCalendarService();
     const tasksService = new GoogleTasksService();
-    const claudeService = new ClaudeService();
+    const geminiService = new GeminiService();
     const lineBotService = new LineBotService();
 
     // Agentの初期化
     const calendarAgent = new CalendarAgent(
       calendarService,
-      claudeService,
+      geminiService,
       familyManager
     );
 
     const tasksAgent = new TasksAgent(
       tasksService,
-      claudeService,
+      geminiService,
       familyManager
     );
 
     const unifiedAgent = new UnifiedAgent(
       calendarAgent,
       tasksAgent,
-      claudeService,
+      geminiService,
       familyManager
     );
 

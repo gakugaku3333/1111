@@ -1,6 +1,6 @@
 import { CalendarAgent } from './calendar-agent.js';
 import { TasksAgent } from './tasks-agent.js';
-import { ClaudeService } from '../services/claude.js';
+import { GeminiService } from '../services/gemini.js';
 import { FamilyMemberManager } from '../models/family-member.js';
 import { AgentResult } from '../models/types.js';
 
@@ -11,18 +11,18 @@ import { AgentResult } from '../models/types.js';
 export class UnifiedAgent {
   private calendarAgent: CalendarAgent;
   private tasksAgent: TasksAgent;
-  private claudeService: ClaudeService;
+  private geminiService: GeminiService;
   private familyManager: FamilyMemberManager;
 
   constructor(
     calendarAgent: CalendarAgent,
     tasksAgent: TasksAgent,
-    claudeService: ClaudeService,
+    geminiService: GeminiService,
     familyManager: FamilyMemberManager
   ) {
     this.calendarAgent = calendarAgent;
     this.tasksAgent = tasksAgent;
-    this.claudeService = claudeService;
+    this.geminiService = geminiService;
     this.familyManager = familyManager;
   }
 
@@ -37,7 +37,7 @@ export class UnifiedAgent {
   async execute(input: string): Promise<AgentResult> {
     try {
       // 自然言語を解析して予定かタスクかを判別
-      const command = await this.claudeService.parseUnifiedCommand(
+      const command = await this.geminiService.parseUnifiedCommand(
         input,
         this.familyManager.getMemberNames()
       );
@@ -160,7 +160,7 @@ export class UnifiedAgent {
   async executeComplex(input: string): Promise<AgentResult> {
     try {
       // まず統合コマンドとして解析
-      const command = await this.claudeService.parseUnifiedCommand(
+      const command = await this.geminiService.parseUnifiedCommand(
         input,
         this.familyManager.getMemberNames()
       );
