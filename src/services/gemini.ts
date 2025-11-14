@@ -177,7 +177,26 @@ JSONのみを返し、説明は不要です
    * 画像から予定・タスクを抽出
    */
   async analyzeImage(imageBase64: string, mimeType: string, memberNames: string[]): Promise<ImageAnalysisResult> {
-    const prompt = `この画像から予定（カレンダーイベント）とタスクを抽出してください。
+    return this.analyzeDocument(imageBase64, mimeType, memberNames, '画像');
+  }
+
+  /**
+   * PDFから予定・タスクを抽出
+   */
+  async analyzePDF(pdfBase64: string, memberNames: string[]): Promise<ImageAnalysisResult> {
+    return this.analyzeDocument(pdfBase64, 'application/pdf', memberNames, 'PDF');
+  }
+
+  /**
+   * ドキュメント（画像・PDF）から予定・タスクを抽出
+   */
+  private async analyzeDocument(
+    fileBase64: string,
+    mimeType: string,
+    memberNames: string[],
+    documentType: string
+  ): Promise<ImageAnalysisResult> {
+    const prompt = `この${documentType}から予定（カレンダーイベント）とタスクを抽出してください。
 
 家族メンバー: ${memberNames.join(', ')}
 
@@ -201,24 +220,24 @@ JSONのみを返し、説明は不要です
       "member": "担当メンバー名（わかる場合）"
     }
   ],
-  "summary": "画像内容の要約"
+  "summary": "${documentType}内容の要約"
 }
 
 重要:
 - 時刻が指定されているものは「events」に分類
 - 時刻が不明なタスクは「tasks」に分類
 - 日付がない場合は推測しないでフィールドを省略
-- 画像にテキストが含まれていない場合は空の配列を返す
+- ${documentType}にテキストが含まれていない場合は空の配列を返す
 - JSONのみを返し、説明は不要です`;
 
-    const imagePart = {
+    const filePart = {
       inlineData: {
-        data: imageBase64,
+        data: fileBase64,
         mimeType: mimeType
       }
     };
 
-    const result = await this.model.generateContent([prompt, imagePart]);
+    const result = await this.model.generateContent([prompt, filePart]);
     const response = result.response;
     const text = response.text();
 
@@ -226,7 +245,7 @@ JSONのみを返し、説明は不要です
       const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(jsonText);
     } catch (error) {
-      throw new Error(`画像解析のJSONパースに失敗しました: ${text}`);
+      throw new Error(`${documentType}解析のJSONパースに失敗しました: ${text}`);
     }
   }
 }

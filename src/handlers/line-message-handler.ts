@@ -1,4 +1,4 @@
-import { WebhookEvent, MessageEvent, TextEventMessage, ImageEventMessage } from '@line/bot-sdk';
+import { WebhookEvent, MessageEvent, TextEventMessage, ImageEventMessage, FileEventMessage } from '@line/bot-sdk';
 import * as line from '@line/bot-sdk';
 import { LineBotService } from '../services/line-bot.js';
 import { UnifiedAgent } from '../agents/unified-agent.js';
@@ -55,6 +55,12 @@ export class LineMessageHandler {
     // 画像メッセージの処理
     if (messageEvent.message.type === 'image') {
       await this.handleImageMessage(messageEvent, replyToken);
+      return;
+    }
+
+    // ファイルメッセージ（PDF等）の処理
+    if (messageEvent.message.type === 'file') {
+      await this.handleFileMessage(messageEvent, replyToken);
       return;
     }
 
@@ -309,6 +315,93 @@ export class LineMessageHandler {
       await this.lineBotService.sendError(
         replyToken,
         '画像の処理中にエラーが発生しました'
+      );
+    }
+  }
+
+  /**
+   * ファイルメッセージ（PDF等）を処理
+   */
+  private async handleFileMessage(messageEvent: MessageEvent, replyToken: string): Promise<void> {
+    try {
+      const fileMessage = messageEvent.message as FileEventMessage;
+      const fileName = fileMessage.fileName;
+      const fileSize = fileMessage.fileSize;
+
+      // PDFファイルかチェック
+      if (!fileName.toLowerCase().endsWith('.pdf')) {
+        await this.lineBotService.sendText(
+          replyToken,
+          '現在、PDFファイルのみ対応しています。\nPDFファイルを送信してください。'
+        );
+        return;
+      }
+
+      // ファイルサイズチェック（10MB制限）
+      if (fileSize > 10 * 1024 * 1024) {
+        await this.lineBotService.sendText(
+          replyToken,
+          'ファイルサイズが大きすぎます。10MB以下のPDFファイルを送信してください。'
+        );
+        return;
+      }
+
+      await this.lineBotService.sendText(replyToken, `📄 PDF「${fileName}」を解析しています...`);
+
+      const messageId = fileMessage.id;
+
+      // LINE APIからPDFを取得
+      const pdfBuffer = await this.downloadImage(messageId);
+      const pdfBase64 = pdfBuffer.toString('base64');
+
+      // GeminiでPDFを解析
+      const analysis = await this.geminiService.analyzePDF(
+        pdfBase64,
+        this.familyManager.getMemberNames()
+      );
+
+      // 結果を確認メッセージで表示
+      if (analysis.events.length === 0 && analysis.tasks.length === 0) {
+        await this.lineBotService.sendText(
+          replyToken,
+          'PDFから予定やタスクを検出できませんでした。\n' +
+          `PDF内容: ${analysis.summary}`
+        );
+        return;
+      }
+
+      // 確認メッセージを作成
+      let confirmMessage = `📋 PDF「${fileName}」から以下の予定・タスクを検出しました：\n\n`;
+
+      if (analysis.events.length > 0) {
+        confirmMessage += '【予定】\n';
+        analysis.events.forEach((event, index) => {
+          const member = event.member ? `[${event.member}] ` : '';
+          const time = event.start ? `\n  📅 ${new Date(event.start).toLocaleString('ja-JP')}` : '';
+          confirmMessage += `${index + 1}. ${member}${event.summary}${time}\n`;
+        });
+        confirmMessage += '\n';
+      }
+
+      if (analysis.tasks.length > 0) {
+        confirmMessage += '【タスク】\n';
+        analysis.tasks.forEach((task, index) => {
+          const member = task.member ? `[${task.member}] ` : '';
+          const due = task.due ? `\n  ⏰ 期限: ${new Date(task.due).toLocaleDateString('ja-JP')}` : '';
+          confirmMessage += `${index + 1}. ${member}${task.title}${due}\n`;
+        });
+      }
+
+      confirmMessage += '\n✅ これらをカレンダーとタスクに追加しますか？\n';
+      confirmMessage += '「はい」または「追加」と返信してください。';
+
+      await this.lineBotService.sendText(replyToken, confirmMessage);
+
+    } catch (error) {
+      console.error('PDF処理エラー:', error);
+      await this.lineBotService.sendError(
+        replyToken,
+        'PDFの処理中にエラーが発生しました'
       );
     }
   }
