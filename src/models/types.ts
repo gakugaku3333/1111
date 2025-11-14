@@ -83,3 +83,34 @@ export interface AgentResult {
   message: string;
   data?: any;
 }
+
+/**
+ * 画像から抽出された予定
+ */
+export interface ExtractedEvent {
+  summary: string;
+  start?: string; // ISO8601形式の日時
+  end?: string;
+  description?: string;
+  location?: string;
+  member?: string;
+}
+
+/**
+ * 画像から抽出されたタスク
+ */
+export interface ExtractedTask {
+  title: string;
+  notes?: string;
+  due?: string; // ISO8601形式の日時
+  member?: string;
+}
+
+/**
+ * 画像解析結果
+ */
+export interface ImageAnalysisResult {
+  events: ExtractedEvent[];
+  tasks: ExtractedTask[];
+  summary: string; // 画像内容の要約
+}

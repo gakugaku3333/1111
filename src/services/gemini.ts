@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ParsedCalendarCommand, ParsedTaskCommand, ParsedUnifiedCommand } from '../models/types.js';
+import { ParsedCalendarCommand, ParsedTaskCommand, ParsedUnifiedCommand, ImageAnalysisResult } from '../models/types.js';
 
 /**
  * Google Gemini API 自然言語処理サービス
@@ -170,6 +170,63 @@ JSONのみを返し、説明は不要です
       return JSON.parse(jsonText);
     } catch (error) {
       throw new Error(`JSONのパースに失敗しました: ${text}`);
+    }
+  }
+
+  /**
+   * 画像から予定・タスクを抽出
+   */
+  async analyzeImage(imageBase64: string, mimeType: string, memberNames: string[]): Promise<ImageAnalysisResult> {
+    const prompt = `この画像から予定（カレンダーイベント）とタスクを抽出してください。
+
+家族メンバー: ${memberNames.join(', ')}
+
+以下のJSON形式で返してください：
+{
+  "events": [
+    {
+      "summary": "予定のタイトル",
+      "start": "ISO8601形式の開始日時（例: 2025-05-10T10:00:00+09:00）",
+      "end": "ISO8601形式の終了日時",
+      "description": "詳細（任意）",
+      "location": "場所（任意）",
+      "member": "担当メンバー名（わかる場合）"
+    }
+  ],
+  "tasks": [
+    {
+      "title": "タスクの内容",
+      "notes": "詳細（任意）",
+      "due": "ISO8601形式の期日（任意）",
+      "member": "担当メンバー名（わかる場合）"
+    }
+  ],
+  "summary": "画像内容の要約"
+}
+
+重要:
+- 時刻が指定されているものは「events」に分類
+- 時刻が不明なタスクは「tasks」に分類
+- 日付がない場合は推測しないでフィールドを省略
+- 画像にテキストが含まれていない場合は空の配列を返す
+- JSONのみを返し、説明は不要です`;
+
+    const imagePart = {
+      inlineData: {
+        data: imageBase64,
+        mimeType: mimeType
+      }
+    };
+
+    const result = await this.model.generateContent([prompt, imagePart]);
+    const response = result.response;
+    const text = response.text();
+
+    try {
+      const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(jsonText);
+    } catch (error) {
+      throw new Error(`画像解析のJSONパースに失敗しました: ${text}`);
     }
   }
 }

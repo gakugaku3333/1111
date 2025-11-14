@@ -73,7 +73,9 @@ class LineBotServer {
       lineBotService,
       unifiedAgent,
       calendarAgent,
-      tasksAgent
+      tasksAgent,
+      geminiService,
+      familyManager
     );
 
     // ルート設定

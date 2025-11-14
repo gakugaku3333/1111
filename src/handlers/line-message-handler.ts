@@ -1,8 +1,12 @@
-import { WebhookEvent, MessageEvent, TextEventMessage } from '@line/bot-sdk';
+import { WebhookEvent, MessageEvent, TextEventMessage, ImageEventMessage } from '@line/bot-sdk';
+import * as line from '@line/bot-sdk';
 import { LineBotService } from '../services/line-bot.js';
 import { UnifiedAgent } from '../agents/unified-agent.js';
 import { CalendarAgent } from '../agents/calendar-agent.js';
 import { TasksAgent } from '../agents/tasks-agent.js';
+import { GeminiService } from '../services/gemini.js';
+import { FamilyMemberManager } from '../models/family-member.js';
+import https from 'https';
 
 /**
  * LINEメッセージハンドラー
@@ -12,30 +16,54 @@ export class LineMessageHandler {
   private unifiedAgent: UnifiedAgent;
   private calendarAgent: CalendarAgent;
   private tasksAgent: TasksAgent;
+  private geminiService: GeminiService;
+  private familyManager: FamilyMemberManager;
+  private lineClient: line.messagingApi.MessagingApiClient;
 
   constructor(
     lineBotService: LineBotService,
     unifiedAgent: UnifiedAgent,
     calendarAgent: CalendarAgent,
-    tasksAgent: TasksAgent
+    tasksAgent: TasksAgent,
+    geminiService: GeminiService,
+    familyManager: FamilyMemberManager
   ) {
     this.lineBotService = lineBotService;
     this.unifiedAgent = unifiedAgent;
     this.calendarAgent = calendarAgent;
     this.tasksAgent = tasksAgent;
+    this.geminiService = geminiService;
+    this.familyManager = familyManager;
+
+    // LINE APIクライアントの初期化
+    this.lineClient = new line.messagingApi.MessagingApiClient({
+      channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
+    });
   }
 
   /**
    * Webhookイベントを処理
    */
   async handleEvent(event: WebhookEvent): Promise<void> {
-    if (event.type !== 'message' || event.message.type !== 'text') {
+    if (event.type !== 'message') {
       return;
     }
 
     const messageEvent = event as MessageEvent;
-    const textMessage = messageEvent.message as TextEventMessage;
     const replyToken = messageEvent.replyToken;
+
+    // 画像メッセージの処理
+    if (messageEvent.message.type === 'image') {
+      await this.handleImageMessage(messageEvent, replyToken);
+      return;
+    }
+
+    // テキストメッセージの処理
+    if (messageEvent.message.type !== 'text') {
+      return;
+    }
+
+    const textMessage = messageEvent.message as TextEventMessage;
     const userMessage = textMessage.text.trim();
 
     try {
@@ -213,5 +241,98 @@ export class LineMessageHandler {
     } else {
       await this.lineBotService.sendError(replyToken, result.message);
     }
+  }
+
+  /**
+   * 画像メッセージを処理
+   */
+  private async handleImageMessage(messageEvent: MessageEvent, replyToken: string): Promise<void> {
+    try {
+      await this.lineBotService.sendText(replyToken, '📸 画像を解析しています...');
+
+      const imageMessage = messageEvent.message as ImageEventMessage;
+      const messageId = imageMessage.id;
+
+      // LINE APIから画像を取得
+      const imageBuffer = await this.downloadImage(messageId);
+      const imageBase64 = imageBuffer.toString('base64');
+
+      // Geminiで画像を解析
+      const analysis = await this.geminiService.analyzeImage(
+        imageBase64,
+        'image/jpeg',
+        this.familyManager.getMemberNames()
+      );
+
+      // 結果を確認メッセージで表示
+      if (analysis.events.length === 0 && analysis.tasks.length === 0) {
+        await this.lineBotService.sendText(
+          replyToken,
+          '画像から予定やタスクを検出できませんでした。\n' +
+          `画像内容: ${analysis.summary}`
+        );
+        return;
+      }
+
+      // 確認メッセージを作成
+      let confirmMessage = '📋 以下の予定・タスクを検出しました：\n\n';
+
+      if (analysis.events.length > 0) {
+        confirmMessage += '【予定】\n';
+        analysis.events.forEach((event, index) => {
+          const member = event.member ? `[${event.member}] ` : '';
+          const time = event.start ? `\n  📅 ${new Date(event.start).toLocaleString('ja-JP')}` : '';
+          confirmMessage += `${index + 1}. ${member}${event.summary}${time}\n`;
+        });
+        confirmMessage += '\n';
+      }
+
+      if (analysis.tasks.length > 0) {
+        confirmMessage += '【タスク】\n';
+        analysis.tasks.forEach((task, index) => {
+          const member = task.member ? `[${task.member}] ` : '';
+          const due = task.due ? `\n  ⏰ 期限: ${new Date(task.due).toLocaleDateString('ja-JP')}` : '';
+          confirmMessage += `${index + 1}. ${member}${task.title}${due}\n`;
+        });
+      }
+
+      confirmMessage += '\n✅ これらをカレンダーとタスクに追加しますか？\n';
+      confirmMessage += '「はい」または「追加」と返信してください。';
+
+      await this.lineBotService.sendText(replyToken, confirmMessage);
+
+      // TODO: 確認後の処理（ポストバックアクション）を実装
+      // 現在は簡易版として、ユーザーが「はい」と返信したら自動追加する
+
+    } catch (error) {
+      console.error('画像処理エラー:', error);
+      await this.lineBotService.sendError(
+        replyToken,
+        '画像の処理中にエラーが発生しました'
+      );
+    }
+  }
+
+  /**
+   * LINE APIから画像をダウンロード
+   */
+  private async downloadImage(messageId: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api-data.line.me',
+        path: `/v2/bot/message/${messageId}/content`,
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+        },
+      };
+
+      https.get(options, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+        res.on('error', reject);
+      }).on('error', reject);
+    });
   }
 }
