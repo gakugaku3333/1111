@@ -1,0 +1,102 @@
+name: Security Scan
+
+on:
+  # 毎週月曜日午前9時（JST）に実行
+  schedule:
+    - cron: '0 0 * * 1'
+  # 手動でも実行可能
+  workflow_dispatch:
+  # Pull Request時にも実行
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  security-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+        id: npm-audit
+
+      - name: Create Issue if vulnerabilities found
+        if: failure() && steps.npm-audit.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🔒 セキュリティ脆弱性が検出されました';
+            const body = `
+            ## セキュリティスキャン結果
+
+            npm auditで脆弱性が検出されました。
+
+            ### 対応方法
+            1. ローカルで \`npm audit\` を実行して詳細を確認
+            2. \`npm audit fix\` で自動修正を試す
+            3. 手動で依存関係を更新
+
+            ### スキャン情報
+            - **実行日時:** ${{ github.event.repository.updated_at }}
+            - **ブランチ:** ${{ github.ref }}
+            - **実行者:** GitHub Actions
+
+            詳細は[Actions実行ログ](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})を確認してください。
+            `;
+
+            // 既存の同じタイトルのIssueを検索
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['security']
+            });
+
+            const existingIssue = issues.data.find(issue => issue.title === title);
+
+            if (!existingIssue) {
+              // 新しいIssueを作成
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['security', 'automated']
+              });
+            } else {
+              // 既存のIssueにコメント
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `脆弱性が再検出されました（${{ github.event.repository.updated_at }}）`
+              });
+            }
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate

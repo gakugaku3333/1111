@@ -295,6 +295,137 @@ await unifiedAgent.executeWithABTest('長女：ピアノの練習をする', 'B'
 - **Variant A**: Gemini APIによる高精度な判別
 - **Variant B**: ルールベース判別 + Gemini APIのハイブリッド
 
+## 🚀 デプロイ（Google Cloud Run）
+
+### GitHub Actionsによる自動デプロイ
+
+このプロジェクトは、GitHub Actionsを使用してGoogle Cloud Runへ自動デプロイされます。
+
+#### 📋 デプロイの前提条件
+
+1. **Google Cloudプロジェクトの作成**
+   - [Google Cloud Console](https://console.cloud.google.com/)でプロジェクトを作成
+   - Cloud Run APIを有効化
+   - Container Registry APIを有効化
+
+2. **サービスアカウントの作成**
+   ```bash
+   # GCPプロジェクトIDを設定
+   export PROJECT_ID=your-project-id
+
+   # サービスアカウントを作成
+   gcloud iam service-accounts create github-actions \
+     --display-name="GitHub Actions"
+
+   # 必要な権限を付与
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
+     --role="roles/run.admin"
+
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
+     --role="roles/storage.admin"
+
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:github-actions@${PROJECT_ID}.iam.gserviceaccount.com" \
+     --role="roles/iam.serviceAccountUser"
+
+   # JSONキーを生成
+   gcloud iam service-accounts keys create key.json \
+     --iam-account=github-actions@${PROJECT_ID}.iam.gserviceaccount.com
+   ```
+
+3. **GitHub Secretsの設定**
+
+   リポジトリの Settings > Secrets and variables > Actions で以下を設定：
+
+   | Secret名 | 説明 | 例 |
+   |---------|------|-----|
+   | `GCP_PROJECT_ID` | GCPプロジェクトID | `my-project-12345` |
+   | `GCP_SA_KEY` | サービスアカウントのJSONキー | `key.json`の内容をコピー |
+   | `GEMINI_API_KEY` | Gemini APIキー | `AI...` |
+   | `GOOGLE_CLIENT_ID` | Google OAuth クライアントID | `123...apps.googleusercontent.com` |
+   | `GOOGLE_CLIENT_SECRET` | Google OAuth クライアントシークレット | `GOCSPX-...` |
+   | `LINE_CHANNEL_ACCESS_TOKEN` | LINE チャンネルアクセストークン | `eyJ...` |
+   | `LINE_CHANNEL_SECRET` | LINE チャンネルシークレット | `abc...` |
+
+#### 🔄 デプロイフロー
+
+```
+開発者がPR作成
+  ↓
+GitHub Actions: CI実行
+  - ESLint
+  - TypeScript型チェック
+  - ビルド確認
+  ↓
+レビュー＆承認
+  ↓
+mainブランチへマージ
+  ↓
+GitHub Actions: 自動デプロイ
+  - Dockerイメージビルド
+  - GCRへプッシュ
+  - Cloud Runへデプロイ
+  ↓
+本番環境で稼働！
+```
+
+#### 📦 ワークフロー
+
+1. **CI/CD Pipeline** (`.github/workflows/ci.yml`)
+   - Pull Request時: Lint + 型チェック + ビルド
+   - mainブランチマージ時: 上記 + Cloud Runへ自動デプロイ
+
+2. **セキュリティスキャン** (`.github/workflows/security.yml`)
+   - 週次でnpm auditを実行
+   - 脆弱性検出時に自動でIssue作成
+
+3. **Dependabot** (`.github/dependabot.yml`)
+   - 週次で依存関係を自動更新
+   - セキュリティアップデートは即座に適用
+
+#### 🌐 デプロイ後の設定
+
+1. **Cloud RunのURLを取得**
+   ```bash
+   gcloud run services describe family-ai-assistant \
+     --platform managed \
+     --region asia-northeast1 \
+     --format 'value(status.url)'
+   ```
+
+2. **LINE Webhook URLを更新**
+   - LINE Developers Consoleで Webhook URL を更新
+   - `https://your-cloud-run-url/webhook`
+
+3. **Google OAuth リダイレクトURIを更新**
+   - Google Cloud Consoleで承認済みのリダイレクトURIに追加
+   - `https://your-cloud-run-url/auth/callback`
+
+#### 💰 コスト見積もり
+
+Google Cloud Runの無料枠：
+- 月間200万リクエスト
+- 36万vCPU秒
+- 180,000 GiB秒のメモリ
+
+→ 家族での利用なら**ほぼ無料**で運用可能！
+
+#### 🛠️ ローカルでDockerテスト
+
+```bash
+# Dockerイメージをビルド
+docker build -t family-ai-assistant .
+
+# ローカルで実行
+docker run -p 8080:8080 \
+  -e GEMINI_API_KEY=$GEMINI_API_KEY \
+  -e LINE_CHANNEL_ACCESS_TOKEN=$LINE_CHANNEL_ACCESS_TOKEN \
+  -e LINE_CHANNEL_SECRET=$LINE_CHANNEL_SECRET \
+  family-ai-assistant
+```
+
 ## 📝 ライセンス
 
 MIT

@@ -1,0 +1,39 @@
+# 依存関係
+node_modules/
+npm-debug.log
+
+# ビルド成果物
+dist/
+
+# Git
+.git/
+.gitignore
+.github/
+
+# 環境変数（機密情報）
+.env
+.env.local
+.env.*.local
+
+# IDE設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# テスト
+coverage/
+.nyc_output/
+
+# ドキュメント
+README.md
+LICENSE
+*.md
+
+# CI/CD
+.github/
+
+# その他
+.DS_Store
+Thumbs.db
